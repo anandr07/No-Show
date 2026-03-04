@@ -320,6 +320,8 @@ function HumanHandArea() {
   const score = getHandScore(player.hand);
   const isHumanLabel = gameMode === 'vs_bots';
 
+  const sortedHand = [...player.hand].sort((a, b) => b.value - a.value);
+
   return (
     <View style={styles.handArea}>
       <View style={styles.handHeader}>
@@ -335,25 +337,22 @@ function HumanHandArea() {
         </View>
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.handScroll}
-      >
-        {player.hand.map(card => {
+      <View style={styles.handGrid}>
+        {sortedHand.map(card => {
           const selected = selectedCardIds.includes(card.id);
           return (
-            <CardView
-              key={card.id}
-              card={card}
-              selected={selected}
-              onPress={canThrow ? () => handleCardPress(card.id) : undefined}
-              disabled={!canThrow}
-              dimmed={!isHumanTurn && gameMode === 'vs_bots'}
-            />
+            <View key={card.id} style={styles.handCardWrapper}>
+              <CardView
+                card={card}
+                selected={selected}
+                onPress={canThrow ? () => handleCardPress(card.id) : undefined}
+                disabled={!canThrow}
+                dimmed={!isHumanTurn && gameMode === 'vs_bots'}
+              />
+            </View>
           );
         })}
-      </ScrollView>
+      </View>
 
       {canThrow && (
         <View style={styles.actionButtons}>
@@ -454,7 +453,6 @@ function BotHandsViewer() {
       <Text style={styles.botHandsTitle}>Opponents</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.botHandsScroll}>
         {bots.map(bot => {
-          const score = getHandScore(bot.hand);
           const isActive = game.players.indexOf(bot) === game.currentPlayerIndex;
           return (
             <View key={bot.id} style={[styles.botHandCard, isActive && styles.botHandCardActive]}>
@@ -473,7 +471,7 @@ function BotHandsViewer() {
                   <Text style={styles.botMoreCards}>+{bot.hand.length - 5}</Text>
                 )}
               </View>
-              <Text style={styles.botHandCount}>{bot.hand.length} cards · {score} pts</Text>
+              <Text style={styles.botHandCount}>{bot.hand.length} cards</Text>
             </View>
           );
         })}
@@ -638,9 +636,7 @@ export default function GameScreen() {
 
   const currentPlayer = game.players[game.currentPlayerIndex];
   const displayCurrentName = gameMode === 'vs_bots' && game.currentPlayerIndex === humanPlayerIndex
-    ? 'Your Turn'
-    : currentPlayer.isBot
-    ? currentPlayer.name
+    ? 'You'
     : currentPlayer.name;
 
   const handleQuit = () => {
@@ -681,6 +677,17 @@ export default function GameScreen() {
           ]} />
         </View>
       </View>
+
+      {gameMode === 'vs_bots' && isHumanTurn && (
+        <Animated.View
+          entering={FadeInDown.duration(250)}
+          exiting={FadeOut.duration(200)}
+          style={styles.yourTurnPopup}
+        >
+          <Ionicons name="hand-left-outline" size={16} color={Colors.gold} />
+          <Text style={styles.yourTurnPopupText}>Your Turn</Text>
+        </Animated.View>
+      )}
 
       <PlayerInfoBar onPress={() => setShowScorecard(true)} />
 
@@ -754,6 +761,27 @@ const styles = StyleSheet.create({
     color: Colors.gold,
     flex: 1,
     textAlign: 'right',
+  },
+  yourTurnPopup: {
+    marginHorizontal: 16,
+    marginBottom: 4,
+    marginTop: 4,
+    alignSelf: 'flex-end',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(212,175,55,0.12)',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: Colors.gold,
+  },
+  yourTurnPopupText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 13,
+    color: Colors.gold,
+    letterSpacing: 0.5,
   },
   phaseDot: {
     width: 8,
@@ -1060,25 +1088,48 @@ const styles = StyleSheet.create({
   },
   botHandsScroll: { paddingHorizontal: 16, gap: 10 },
   botHandCard: {
-    padding: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 12,
     backgroundColor: Colors.surface,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: Colors.border,
-    gap: 6,
+    gap: 8,
     minWidth: 100,
   },
   botHandCardActive: {
     borderColor: Colors.gold,
     backgroundColor: 'rgba(212,175,55,0.07)',
   },
-  botHandHeader: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  botHandHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 4,
+  },
   botHandName: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: Colors.textSecondary, flex: 1 },
   botHandNameActive: { color: Colors.gold },
   activeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.green },
-  botHandCards: { flexDirection: 'row', gap: 3 },
-  botMoreCards: { fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.textMuted, alignSelf: 'center' },
-  botHandCount: { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textMuted },
+  botHandCards: {
+    flexDirection: 'row',
+    gap: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 2,
+  },
+  botMoreCards: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 11,
+    color: Colors.textMuted,
+    alignSelf: 'center',
+  },
+  botHandCount: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+    color: Colors.textMuted,
+    marginTop: 4,
+    textAlign: 'center',
+  },
   handArea: { flex: 1, paddingTop: 10, gap: 8 },
   handHeader: {
     flexDirection: 'row',
@@ -1106,6 +1157,16 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingBottom: 4,
     alignItems: 'flex-end',
+  },
+  handGrid: {
+    paddingHorizontal: 16,
+    paddingBottom: 4,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  handCardWrapper: {
+    marginBottom: 4,
   },
   actionButtons: {
     paddingHorizontal: 16,
