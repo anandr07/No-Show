@@ -1,0 +1,1116 @@
+PRODUCT REQUIREMENTS DOCUMENT (PRD)
+Product Name: No Show
+Platform: iOS and Android Mobile Application
+Version: 1.0
+Author: Product & Engineering
+1. Product Overview
+1.1 Product Summary
+
+No Show is a multiplayer turn-based card game mobile application where players compete to minimize their card score by forming valid sequences and pairs and strategically declaring "Show" when they believe they have the lowest score.
+
+The application enables:
+
+Real-time multiplayer gameplay
+
+Private and public game rooms
+
+Persistent player scoring across rounds
+
+Player elimination and winner determination
+
+Cross-platform mobile support
+
+1.2 Product Vision
+
+Create a competitive, social, and scalable multiplayer card game platform that allows players to easily play with friends or online players with smooth real-time synchronization.
+
+1.3 Product Objectives
+Business Objectives
+
+Acquire users through engaging multiplayer gameplay
+
+Achieve high user retention via competitive scoring
+
+Build scalable multiplayer infrastructure
+
+Enable future monetization (ads, skins, premium features)
+
+Support large concurrent player base
+
+User Objectives
+
+Users should be able to:
+
+Create or join multiplayer rooms
+
+Play with 3–6 players
+
+Play complete matches with multiple rounds
+
+View scores and game progression
+
+Experience fair and synchronized gameplay
+
+Resume game after temporary disconnection
+
+2. Definitions
+2.1 Terms
+Term	Definition
+Deck	Standard 52-card set
+Hand	Cards held by player
+Sequence	3+ consecutive rank cards
+Pair	2+ cards of same rank
+Discard pile	Cards discarded by players
+Pickup deck	Remaining deck used for drawing
+Show	Player declares they have lowest score
+Round	Game phase ending in Show
+Game	Multiple rounds until elimination
+Turn	Single player's action cycle
+3. Target Users
+Primary Users
+
+Casual mobile gamers
+
+Multiplayer card game players
+
+Friends playing socially
+
+Competitive players
+
+Age range: 16–45
+
+4. Platform Requirements
+Supported Platforms
+
+iOS (iPhone)
+
+Android
+
+Minimum Requirements
+
+Internet connection required
+
+Mobile device with minimum 2GB RAM
+
+5. Game Rules and Logic
+5.1 Deck Specification
+
+Standard 52 cards:
+
+Suits:
+
+Hearts
+
+Diamonds
+
+Clubs
+
+Spades
+
+Ranks:
+
+Ace
+
+2–10
+
+Jack
+
+Queen
+
+King
+
+5.2 Card Values
+Rank	Value
+Ace	1
+2–10	Face value
+Jack	11
+Queen	12
+King	13
+5.3 Valid Card Combinations
+Sequence
+
+Definition:
+3 or more consecutive ranks.
+
+Valid Examples:
+
+A,2,3
+
+5,6,7
+
+10,J,Q
+
+K,Q,J
+
+Suit does not matter.
+
+Invalid Examples:
+
+2,4,5
+
+10,Q,K
+
+Pair
+
+Definition:
+2 or more cards of same rank.
+
+Valid Examples:
+
+10♥ 10♠
+
+K♣ K♦ K♥
+
+Suit does not matter.
+
+Invalid:
+
+10♥ J♥
+
+5.4 Game Initialization
+
+System shall:
+
+Step 1: Create 52-card deck
+
+Step 2: Shuffle deck randomly
+
+Step 3: Distribute cards:
+
+Each player receives 7 cards
+
+One random player receives 8 cards
+
+Player with 8 cards starts first
+
+Step 4: Remaining cards form pickup deck
+
+Step 5: Top pickup deck card placed in discard pile
+
+5.5 Turn Flow
+
+Each turn must execute in order:
+
+Step 1: Draw phase
+
+Player must draw 1 card from either:
+
+Pickup deck OR
+
+Discard pile (top card only)
+
+Step 2: Action phase
+
+Player may:
+
+Form sequence
+
+Form pair
+
+Discard one card
+
+Player must end turn with 7 cards.
+
+Step 3: Discard phase
+
+Player discards exactly one card.
+
+Discarded card goes to discard pile.
+
+Step 4: Turn passes clockwise.
+
+5.6 Score Calculation
+
+Score = sum of values of cards remaining in hand.
+
+Example:
+
+Hand:
+Ace, 2, 5
+
+Score:
+1 + 2 + 5 = 8
+
+5.7 Show Logic
+
+Player may press SHOW during their turn.
+
+System calculates all players' scores.
+
+Let:
+
+Showing player score = S
+
+Other player score = P
+
+Case 1: Any player has score < S
+
+Showing player penalty:
+
+S += 15
+
+Other players:
+
+No change
+
+Case 2: Showing player has lowest score
+
+Each other player:
+
+score += (playerScore − showingPlayerScore)
+
+Showing player:
+
+No change
+
+5.8 Round End
+
+After Show resolution:
+
+System shall:
+
+Update player scores
+
+Start new round
+
+Redistribute cards
+
+Preserve accumulated scores
+
+5.9 Player Elimination
+
+If player score ≥ 99
+
+System shall:
+
+Mark player eliminated
+
+Remove player from future rounds
+
+5.10 Game End
+
+Game ends when only 1 player remains.
+
+That player is winner.
+
+6. Functional Requirements
+6.1 Account Management
+
+System shall allow:
+
+Guest login
+
+Account login
+
+Logout
+
+System shall store:
+
+Player ID
+
+Username
+
+Stats
+
+6.2 Room System
+
+User shall be able to:
+
+Create room
+
+Join room via room code
+
+Leave room
+
+View players in room
+
+Room shall contain:
+
+Room ID
+
+Player list
+
+Host ID
+
+Game state
+
+6.3 Match System
+
+System shall:
+
+Start game when minimum players present
+
+Assign turn order
+
+Synchronize game state
+
+6.4 Turn System
+
+System shall:
+
+Enforce turn order
+
+Allow actions only on player's turn
+
+Prevent invalid actions
+
+6.5 Game State Management
+
+System shall maintain:
+
+Player hands
+
+Deck state
+
+Discard pile
+
+Turn order
+
+Scores
+
+Round number
+
+6.6 Multiplayer Synchronization
+
+System shall synchronize in real-time:
+
+Card draws
+
+Discards
+
+Player turns
+
+Score updates
+
+Round transitions
+
+6.7 Reconnection Handling
+
+If player disconnects:
+
+System shall:
+
+Allow reconnection
+
+Restore state
+
+7. Frontend Requirements
+7.1 Screens
+
+Splash Screen
+Login Screen
+Home Screen
+Create Room Screen
+Join Room Screen
+Waiting Room Screen
+Game Screen
+Result Screen
+
+7.2 Game Screen Requirements
+
+Must display:
+
+Player hand
+
+Opponent card count
+
+Deck
+
+Discard pile
+
+Player scores
+
+Current turn indicator
+
+Draw buttons
+
+Show button
+
+8. Backend Requirements
+
+System shall provide:
+
+Authentication
+Room management
+Game state storage
+Score storage
+Match persistence
+
+9. Database Requirements
+
+Must store:
+
+Users
+Rooms
+Game states
+Scores
+
+10. Non-Functional Requirements
+
+Performance:
+
+Latency < 300 ms
+
+Availability:
+
+99.9% uptime
+
+Scalability:
+
+Support 100,000 concurrent players
+
+Security:
+
+Prevent cheating
+Server-validated moves
+
+11. Edge Cases
+
+System must handle:
+
+Player disconnect
+Invalid move
+Invalid sequence
+Invalid pair
+Simultaneous actions
+Empty deck
+Player elimination
+Game recovery
+
+12. Full End-to-End Example Use Case
+
+Players:
+
+P1
+P2
+P3
+P4
+
+Cards distributed:
+
+P1: A,2,3,7,8,9,K,J
+P2: 5,5,6,7,8,9,Q
+P3: 2,3,4,10,J,Q,K
+P4: A,A,4,5,6,9,10
+
+P1 starts.
+
+Turns proceed.
+
+After multiple turns:
+
+P1 has A,2,3 → score 6
+P2 score = 8
+P3 score = 10
+P4 score = 15
+
+P1 presses Show.
+
+Score update:
+
+P2 += 2
+P3 += 4
+P4 += 9
+
+Round ends.
+
+Game continues until elimination.
+
+13. Technical Requirements
+
+Frontend:
+
+Flutter
+
+Backend:
+
+Firebase
+
+Database:
+
+Firestore / Realtime DB
+
+Multiplayer:
+
+Realtime sync system
+
+14. Success Criteria
+
+Application must allow:
+
+Full multiplayer game completion
+
+Accurate score calculation
+
+Real-time synchronization
+
+Player elimination
+
+Winner declaration
+
+If you want, I can also convert this into:
+
+• Engineering Technical Design Document (TDD)
+• Cursor-ready implementation spec
+• Database schema document
+• API specification
+
+Do all of the above and give me everything in one go
+
+Below is the complete production package combining:
+
+PRD (Product Requirements Document)
+
+TDD (Technical Design Document)
+
+System Architecture
+
+Database Schema
+
+API Specification
+
+Multiplayer Sync Design
+
+Game Engine Specification
+
+State Machine
+
+Full Use Cases
+
+Edge Cases
+
+Cursor-ready Implementation Spec
+
+This is written to the same level used in real multiplayer game production.
+
+1. PRODUCT REQUIREMENTS DOCUMENT (PRD)
+Product Name
+
+No Show
+
+Platform
+
+Mobile Application (iOS, Android)
+
+Product Type
+
+Real-time multiplayer turn-based card game
+
+1.1 Product Vision
+
+Build a scalable multiplayer card game platform enabling players to play competitive turn-based games with friends or online players, with persistent scoring, elimination, and winner progression.
+
+1.2 Product Goals
+Business Goals
+
+Acquire and retain mobile multiplayer users
+
+Build scalable multiplayer backend
+
+Enable monetization readiness
+
+Support large concurrent players
+
+User Goals
+
+Users must be able to:
+
+Create and join rooms
+
+Play multiplayer games
+
+Perform turn actions
+
+View real-time updates
+
+Track scores
+
+Continue until winner determined
+
+1.3 Success Metrics
+Metric	Target
+Crash rate	<1%
+Latency	<300ms
+Match completion	>90%
+Retention Day 7	>25%
+2. GAME DESIGN SPECIFICATION
+2.1 Deck Definition
+
+52 cards:
+
+Suits:
+
+Hearts
+
+Diamonds
+
+Clubs
+
+Spades
+
+Ranks:
+
+A,2,3,4,5,6,7,8,9,10,J,Q,K
+
+2.2 Card Values
+
+Ace = 1
+2–10 = face value
+Jack = 11
+Queen = 12
+King = 13
+
+2.3 Valid Combinations
+Sequence
+
+Minimum: 3 cards
+Must be consecutive
+
+Examples:
+
+A-2-3
+5-6-7
+10-J-Q
+
+Suit irrelevant.
+
+Pair
+
+Minimum: 2 cards
+Same rank required
+
+Examples:
+
+10♥ 10♠
+K♣ K♦ K♥
+
+2.4 Game Initialization Logic
+
+System must:
+
+Create deck
+
+Shuffle deck (Fisher-Yates)
+
+Deal cards:
+
+Each player → 7 cards
+Random player → +1 card
+
+Remaining deck → Pickup deck
+
+Top pickup card → Discard pile
+
+2.5 Turn Flow
+
+Each turn:
+
+Phase 1: Draw
+
+Player draws from:
+
+Deck OR
+
+Discard pile
+
+Phase 2: Play
+
+Player may:
+
+Create sequence
+
+Create pair
+
+Do nothing
+
+Phase 3: Discard
+
+Player discards 1 card.
+
+Phase 4: Turn ends
+
+Next player turn begins.
+
+2.6 Score Calculation
+
+Score = sum of cards in hand
+
+2.7 Show Logic
+
+Player presses SHOW.
+
+Case 1:
+If any player score < showing player score
+
+Showing player penalty:
++15
+
+Others: 0
+
+Case 2:
+Showing player lowest
+
+Each other player:
+
+score += (theirScore − showingScore)
+
+2.8 Elimination Logic
+
+If player score ≥ 99
+
+Player eliminated.
+
+Game continues.
+
+2.9 Winner Logic
+
+Last remaining player wins.
+
+3. TECHNICAL DESIGN DOCUMENT (TDD)
+3.1 Architecture Overview
+
+Architecture type:
+
+Client-Server Multiplayer Architecture
+
+Components:
+
+Mobile Client (Flutter)
+Backend (Firebase)
+Multiplayer Sync Layer
+Game Engine (Server authoritative)
+
+3.2 System Architecture Diagram
+Mobile Client (Flutter)
+   |
+Multiplayer Sync Layer
+   |
+Game Service Layer
+   |
+Firebase Backend
+   |
+Database
+3.3 Component Responsibilities
+
+Mobile Client:
+
+UI rendering
+User input
+Display game state
+
+Backend:
+
+Store state
+Validate moves
+Calculate scores
+
+Game Engine:
+
+Card logic
+Turn logic
+Score logic
+
+Multiplayer Layer:
+
+State sync
+Event propagation
+
+4. DATABASE DESIGN
+
+Use Firebase Firestore.
+
+4.1 Users Collection
+users/
+  userId
+    username
+    avatar
+    totalGames
+    wins
+    losses
+    createdAt
+4.2 Rooms Collection
+rooms/
+  roomId
+    hostId
+    players[]
+    state
+    createdAt
+4.3 GameState Collection
+gameStates/
+  roomId
+    deck[]
+    discardPile[]
+    players[]
+    currentTurn
+    scores{}
+    roundNumber
+    gameStatus
+5. DATA MODELS
+5.1 Card Model
+Card
+{
+  id: string
+  suit: string
+  rank: string
+  value: number
+}
+5.2 Player Model
+Player
+{
+  id: string
+  hand: Card[]
+  score: number
+  eliminated: boolean
+}
+5.3 Room Model
+Room
+{
+  id: string
+  players: Player[]
+  gameStateId: string
+}
+6. GAME ENGINE DESIGN
+6.1 Core Engine Functions
+
+createDeck()
+
+shuffleDeck()
+
+dealCards()
+
+drawCard()
+
+discardCard()
+
+validateSequence()
+
+validatePair()
+
+calculateScore()
+
+handleShow()
+
+checkElimination()
+
+checkWinner()
+
+7. API SPECIFICATION
+7.1 Authentication
+
+POST /login
+
+Response:
+
+{
+ userId,
+ token
+}
+7.2 Create Room
+
+POST /room/create
+
+Response:
+
+{
+ roomId
+}
+7.3 Join Room
+
+POST /room/join
+
+7.4 Start Game
+
+POST /game/start
+
+7.5 Draw Card
+
+POST /game/draw
+
+7.6 Discard Card
+
+POST /game/discard
+
+7.7 Show
+
+POST /game/show
+
+8. MULTIPLAYER SYNC DESIGN
+8.1 Sync Events
+
+playerJoined
+gameStarted
+cardDrawn
+cardDiscarded
+showCalled
+roundEnded
+playerEliminated
+
+8.2 Sync Model
+
+Server authoritative.
+
+Client sends request
+Server validates
+Server updates state
+Server broadcasts state
+
+9. GAME STATE MACHINE
+
+States:
+
+WAITING
+STARTING
+PLAYING
+ROUND_END
+GAME_END
+
+Transitions:
+
+WAITING → STARTING
+STARTING → PLAYING
+PLAYING → ROUND_END
+ROUND_END → PLAYING
+PLAYING → GAME_END
+
+10. COMPLETE GAME USE CASE (4 PLAYERS)
+
+Players:
+
+P1
+P2
+P3
+P4
+
+Deal cards.
+
+P1 gets 8 cards.
+
+Turns proceed.
+
+After turns:
+
+P1 score 6
+P2 score 8
+P3 score 10
+P4 score 15
+
+P1 presses Show.
+
+Score updates.
+
+New round begins.
+
+Continue until elimination.
+
+11. EDGE CASES
+
+Must handle:
+
+Player disconnect
+Invalid move
+Empty deck
+Invalid sequence
+Invalid pair
+Multiple shows
+Simultaneous actions
+
+12. FRONTEND DESIGN SPEC
+
+Screens:
+
+Splash
+Login
+Home
+Room
+Game
+Result
+
+Game screen must show:
+
+Player cards
+Opponent card counts
+Deck
+Discard
+Scores
+
+13. CURSOR IMPLEMENTATION SPEC
+
+Build in order:
+
+1 Models
+2 Engine
+3 Services
+4 Multiplayer
+5 State
+6 UI
+7 Integration
+
+14. FOLDER STRUCTURE
+lib/
+ models/
+ engine/
+ services/
+ state/
+ ui/
+ main.dart
+15. DEPLOYMENT ARCHITECTURE
+
+Frontend:
+
+Flutter mobile app
+
+Backend:
+
+Firebase
+
+Database:
+
+Firestore
+
+16. SECURITY REQUIREMENTS
+
+Server validates:
+
+turn order
+card ownership
+sequence validity
+
+Prevent cheating.
+
+17. PERFORMANCE REQUIREMENTS
+
+Latency < 300ms
+Realtime sync < 200ms
+
+18. TESTING REQUIREMENTS
+
+Unit tests:
+
+Game engine
+
+Integration tests:
+
+Multiplayer
+
+UI tests:
+
+Gameplay flow
+
+19. DEVELOPMENT PHASES
+
+Phase 1: Engine
+Phase 2: Multiplayer
+Phase 3: UI
+Phase 4: Testing
+Phase 5: Deployment
+
+20. FINAL ACCEPTANCE CRITERIA
+
+System must allow:
+
+Full multiplayer game
+Score calculation
+Player elimination
+Winner selection
+
+I need to make a mobile application above is everything you need, feel free to modify the tech stack if you think anything else would be better. Also make sure you design the frontend and backend very precisely without missing anything. 

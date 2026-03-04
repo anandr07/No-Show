@@ -1,0 +1,29 @@
+Use Case 1 : A deck will be shuffled distributing 8 cards to first player and 7 cards to other playing members on a rotational basis till the game comes to an end.
+Use Case 2 : Player who has got 8 cards will start the game, that is Player 1 will start the game. 
+Use Case 3 : Rest of the deck will be kept reversed(face down) with 1 card in open face. 
+Use Case 4 : A player can either throw a sequence of 3 or more cards or 2 or more similar cards.
+	     Example
+	     Case 1 : Player one can either throw 1,2,3 or 3, 3
+	     Note : King has value 13, Queen has 12 and Joker has 11
+	     Case 2: Player one can throw King, Queen, Joker, 10 ... and so on without skipping any numbers or can throw K,K or Q, Q or K, K, K or Q, Q, Q and so on.
+             Case 3: A player can throw 1 single card and pick 1 card, if the player doesn't have a sequence or pair/triplets/quadruplet of similar cards
+Use Case 5 : After Player 1's turn, player 1 has to pick a card either from the deck or from that reversed card mentioned in Use Case 4.
+Use Case 5 : After Player 1's turn is completed, Player 2 will play in similar fashion and either pick a card from deck or from the cards that were thrown by Player 1
+	     Example :
+	     Case 1 : Player 1 threw 2,3,4,5. Player 2 can pick any of the numbers from 2,3,4,5 or pick a face down card from the deck.
+Use case 6 : After Player 2's turn, Player 3 will start their turn and go in similar fashion
+Use case 7 : A player is only allowed to show cards after 1 round of game is complete. No player is allowed to show while they are playing first round. 
+Use case 8 : Once a player chooses to show cards, value of their card will be calculated with other players. Once a players chooses to show card, all players will show the cards
+	     Example:
+             Case 1 : Player 1 chooses to show at 5,4 which equals to 9. Player 2 shows the cards and he has 3,6,8 which equals 17. Player 3 shows the cards K, Q, 10 which equals 35.
+		     Now based on calculation, Player 1 will received 0 points, Player 2 will receive 17 - 9 = 8 points, and Player 3 will received 35 - 9 = 26 points. 
+             Case 2 : Player 1 chooses to show at 5,4 which equals to 9. Player 2 shows the cards and he has 2,1,1 which equals 17. Player 3 shows the cards K, Q, 10 which equals 35.
+		     Now based on calculation, Player 1 will received 15 points penalty as Player 2 has 4 points and he and rest of players will receive 0 points. If any one player has less 
+                     value after calculation than the player who has choose to show, player who shows will receive a penalty of 15 points and other players will receive 0.
+Use Case 9 : The Game progresses till a persons sum after each round is greater than or equal to 100. Once a player's point reaches 100 or more he is eliminated. 
+
+    
+Mandatory Cases : 1. A player has to throw either a single card, or a sequence of cards greater than 2 or similar card greater than 3. Each player picks a card
+                     after their turn either from the deck or from previous player's thrown cards. (1st player will pick either from deck or 1st reversed card)
+                  2. A player can not skip turns. 
+                  3. A player can decide not to show card even if he has left with 1 card and choose to throw and pick another. 
