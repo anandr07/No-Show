@@ -87,6 +87,8 @@ function broadcastRoomUpdate(roomId: string, payload: object) {
 
 async function ensureProfileExists(userId: string, displayName: string) {
   if (!userId) return;
+
+  // Check if profile already exists
   const { data: existing } = await supabaseServer
     .from("profiles")
     .select("id")
@@ -94,17 +96,28 @@ async function ensureProfileExists(userId: string, displayName: string) {
     .single();
   if (existing) return;
 
+  // Use full UUID (no dashes) as suffix to guarantee username uniqueness
   const baseName = String(displayName).trim() || "player";
-  const safeBase = baseName.replace(/\s+/g, "_").toLowerCase();
-  const username = `${safeBase}_${userId.slice(0, 8)}`;
+  const safeBase = baseName.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase().slice(0, 20);
+  const uniqueSuffix = userId.replace(/-/g, "").slice(0, 12);
+  const username = `${safeBase}_${uniqueSuffix}`;
 
-  const { error } = await supabaseServer.from("profiles").insert({
-    id: userId,
-    username,
-  });
+  const { error } = await supabaseServer.from("profiles").insert({ id: userId, username });
   if (error) {
-    // eslint-disable-next-line no-console
-    console.error("Failed to auto-create profile for room join/create", error);
+    // If duplicate username somehow still happens, retry with a timestamp suffix
+    if (error.code === "23505") {
+      const fallbackUsername = `player_${userId.replace(/-/g, "").slice(0, 20)}`;
+      const { error: retryErr } = await supabaseServer
+        .from("profiles")
+        .insert({ id: userId, username: fallbackUsername });
+      if (retryErr) {
+        // eslint-disable-next-line no-console
+        console.error("Failed to auto-create profile (retry):", retryErr);
+      }
+    } else {
+      // eslint-disable-next-line no-console
+      console.error("Failed to auto-create profile:", error);
+    }
   }
 }
 
@@ -260,8 +273,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       .single();
     if (roomErr || !room) {
       // eslint-disable-next-line no-console
-      console.error("Failed to create room (rooms insert)", roomErr);
-      return res.status(500).json({ message: "Failed to create room" });
+      console.error("Failed to create room (rooms insert):", JSON.stringify(roomErr));
+      return res.status(500).json({ message: `Failed to create room: ${roomErr?.message ?? "unknown error"}` });
     }
     const { error: playerErr } = await supabaseServer.from("room_players").insert({
       room_id: room.id,
