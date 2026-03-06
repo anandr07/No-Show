@@ -174,6 +174,17 @@ function serveLandingPage({
 }
 
 function configureExpoAndLanding(app: express.Application) {
+  // In production (e.g. Railway) the Expo static build isn't present.
+  // Serve a minimal status page at "/" so the root URL doesn't 502.
+  if (process.env.NODE_ENV === "production") {
+    log("Production mode: serving API only (no Expo static build)");
+    app.get("/", (_req: Request, res: Response) => {
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.status(200).send(`<!DOCTYPE html><html><head><title>No-Show API</title></head><body style="font-family:sans-serif;padding:40px;background:#0a1628;color:#fff"><h1>🃏 No-Show API</h1><p>Backend is running. <a href="/api/health" style="color:#d4af37">/api/health</a></p></body></html>`);
+    });
+    return;
+  }
+
   const templatePath = path.resolve(
     process.cwd(),
     "server",
