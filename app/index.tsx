@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   Pressable,
   Platform,
   Dimensions,
+  TextInput,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,6 +24,8 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import Colors from '@/constants/colors';
 import { useGame } from '@/context/GameContext';
+import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 const { width, height } = Dimensions.get('window');
 
@@ -131,9 +134,17 @@ function ModeCard({
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { resetGame } = useGame();
+  const { user } = useAuth();
   const logoOpacity = useSharedValue(0);
   const logoScale = useSharedValue(0.85);
   const subtitleOpacity = useSharedValue(0);
+
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [username, setUsername] = useState('PlayerOne');
+  const [isEditingUsername, setIsEditingUsername] = useState(false);
+  const [pendingUsername, setPendingUsername] = useState(username);
+  const [friendInputOpen, setFriendInputOpen] = useState(false);
+  const [newFriendName, setNewFriendName] = useState('');
 
   useEffect(() => {
     resetGame();
@@ -141,6 +152,26 @@ export default function HomeScreen() {
     logoScale.value = withDelay(200, withTiming(1, { duration: 700, easing: Easing.out(Easing.back(1.1)) }));
     subtitleOpacity.value = withDelay(700, withTiming(1, { duration: 500 }));
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+
+    supabase
+      .from('profiles')
+      .select('username')
+      .eq('id', user.id)
+      .single()
+      .then(({ data, error }) => {
+        if (cancelled || error || !data?.username) return;
+        setUsername(data.username);
+        setPendingUsername(data.username);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   const logoStyle = useAnimatedStyle(() => ({
     opacity: logoOpacity.value,
@@ -151,6 +182,12 @@ export default function HomeScreen() {
   const webTop = Platform.OS === 'web' ? Math.max(insets.top, 67) : insets.top;
   const webBottom = Platform.OS === 'web' ? Math.max(insets.bottom, 34) : insets.bottom;
 
+  const closePanels = () => {
+    setProfileOpen(false);
+    setIsEditingUsername(false);
+    setFriendInputOpen(false);
+  };
+
   const handleVsSystem = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     router.push({ pathname: '/setup', params: { mode: 'vs_bots' } });
@@ -158,7 +195,12 @@ export default function HomeScreen() {
 
   const handleMultiplayer = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    router.push({ pathname: '/setup', params: { mode: 'pvp' } });
+    router.push('/room-entry');
+  };
+
+  const handleOnlineMultiplayer = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    router.push('/online-setup');
   };
 
   const handleHowToPlay = () => {
@@ -172,6 +214,124 @@ export default function HomeScreen() {
         colors={['#0A1628', '#0D1F3C', '#091424']}
         style={StyleSheet.absoluteFill}
       />
+
+      {profileOpen && (
+        <Pressable style={styles.overlayBackdrop} onPress={closePanels} />
+      )}
+
+      <View style={[styles.topBar, { paddingTop: webTop + 8 }]}>
+        <Pressable
+          onPress={() => {
+            setProfileOpen(prev => !prev);
+          }}
+          style={({ pressed }) => [
+            styles.profileIconButton,
+            pressed && { opacity: 0.85 },
+          ]}
+        >
+          <Ionicons name="person-circle-outline" size={36} color={Colors.text} />
+        </Pressable>
+      </View>
+
+      {profileOpen && (
+        <View style={[styles.profilePanel, { top: webTop + 52 }]}>
+          <Text style={styles.panelTitle}>Profile</Text>
+
+          <View style={styles.profileRow}>
+            <Text style={styles.profileLabel}>Username</Text>
+            <Text style={styles.profileValue}>{username}</Text>
+          </View>
+
+          {isEditingUsername && (
+            <View style={styles.profileInputRow}>
+              <TextInput
+                value={pendingUsername}
+                onChangeText={setPendingUsername}
+                placeholder="Enter new username"
+                placeholderTextColor={Colors.textMuted}
+                style={styles.textInput}
+                maxLength={20}
+                autoCapitalize="none"
+              />
+              <Pressable
+                onPress={() => {
+                  const trimmed = pendingUsername.trim();
+                  if (trimmed.length > 0) {
+                    setUsername(trimmed);
+                    if (user) {
+                      supabase
+                        .from('profiles')
+                        .update({ username: trimmed })
+                        .eq('id', user.id)
+                        .then(() => {
+                          // best-effort sync; errors are ignored for now
+                        });
+                    }
+                  }
+                  setIsEditingUsername(false);
+                }}
+                style={({ pressed }) => [
+                  styles.smallPrimaryButton,
+                  pressed && { opacity: 0.9 },
+                ]}
+              >
+                <Text style={styles.smallPrimaryButtonText}>Save</Text>
+              </Pressable>
+            </View>
+          )}
+
+          <Pressable
+            onPress={() => {
+              setIsEditingUsername(prev => !prev);
+              setPendingUsername(username);
+            }}
+            style={({ pressed }) => [
+              styles.panelButton,
+              pressed && { opacity: 0.85 },
+            ]}
+          >
+            <Ionicons name="pencil-outline" size={16} color={Colors.text} />
+            <Text style={styles.panelButtonText}>Change Username</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => setFriendInputOpen(prev => !prev)}
+            style={({ pressed }) => [
+              styles.panelButton,
+              pressed && { opacity: 0.85 },
+            ]}
+          >
+            <Ionicons name="person-add-outline" size={16} color={Colors.text} />
+            <Text style={styles.panelButtonText}>Add Friends</Text>
+          </Pressable>
+
+          {friendInputOpen && (
+            <View style={styles.profileInputRow}>
+              <TextInput
+                value={newFriendName}
+                onChangeText={setNewFriendName}
+                placeholder="Type a username (mock)"
+                placeholderTextColor={Colors.textMuted}
+                style={styles.textInput}
+                maxLength={20}
+                autoCapitalize="none"
+              />
+              <Pressable
+                onPress={() => {
+                  // Dummy behavior: clear field only
+                  setNewFriendName('');
+                }}
+                style={({ pressed }) => [
+                  styles.smallSecondaryButton,
+                  pressed && { opacity: 0.9 },
+                ]}
+              >
+                <Text style={styles.smallSecondaryButtonText}>Send</Text>
+              </Pressable>
+            </View>
+          )}
+        </View>
+      )}
 
       {CARDS.map((card, i) => (
         <FloatingCard key={i} {...card} />
@@ -209,9 +369,18 @@ export default function HomeScreen() {
             delay={1050}
             icon={<Ionicons name="people-outline" size={26} color="#7EC8E3" />}
             title="Multiplayer"
-            subtitle="Pass &amp; play with friends"
+            subtitle="Create a room and play with friends"
             onPress={handleMultiplayer}
             gradient={['rgba(126,200,227,0.15)', 'rgba(126,200,227,0.04)']}
+          />
+
+          <ModeCard
+            delay={1200}
+            icon={<Ionicons name="globe-outline" size={26} color="#9B7BFF" />}
+            title="Online"
+            subtitle="Match with players worldwide"
+            onPress={handleOnlineMultiplayer}
+            gradient={['rgba(155,123,255,0.18)', 'rgba(155,123,255,0.06)']}
           />
         </View>
 
@@ -229,6 +398,173 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  overlayBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'transparent',
+  },
+  topBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
+    zIndex: 20,
+  },
+  topButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: 'rgba(7,16,30,0.9)',
+  },
+  friendsButton: {
+    paddingHorizontal: 14,
+  },
+  topButtonText: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 13,
+    color: Colors.text,
+  },
+  profileIconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(7,16,30,0.9)',
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  profilePanel: {
+    position: 'absolute',
+    right: 16,
+    width: 260,
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: Colors.surfaceHigh,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: 10,
+    zIndex: 30,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  friendsPanel: {
+    // Friends panel removed from homescreen (placeholder style kept intentionally empty)
+  },
+  panelTitle: {
+    fontFamily: 'PlayfairDisplay_700Bold',
+    fontSize: 18,
+    color: Colors.text,
+    marginBottom: 4,
+  },
+  profileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  profileLabel: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 13,
+    color: Colors.textMuted,
+  },
+  profileValue: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 14,
+    color: Colors.text,
+  },
+  profileInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  textInput: {
+    flex: 1,
+    height: 36,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    fontFamily: 'Inter_500Medium',
+    fontSize: 14,
+    color: Colors.text,
+  },
+  panelButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 8,
+  },
+  panelButtonText: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 14,
+    color: Colors.text,
+  },
+  smallPrimaryButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: Colors.gold,
+  },
+  smallPrimaryButtonText: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 13,
+    color: '#0A1628',
+  },
+  smallSecondaryButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: 'rgba(7,16,30,0.9)',
+  },
+  smallSecondaryButtonText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 13,
+    color: Colors.text,
+  },
+  friendRow: {
+    // no-op: friends UI removed from homescreen
+  },
+  friendName: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 14,
+    color: Colors.text,
+  },
+  friendStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  statusDotOnline: {
+    backgroundColor: '#2ecc71',
+  },
+  statusDotOffline: {
+    backgroundColor: Colors.border,
+  },
+  friendStatusText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    color: Colors.textMuted,
+  },
   content: {
     flex: 1,
     alignItems: 'center',

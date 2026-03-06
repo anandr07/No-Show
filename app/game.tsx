@@ -76,13 +76,15 @@ function BotActionBanner({ action }: { action: string }) {
   );
 }
 
-function ScorecardModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-  const { game, gameMode, humanPlayerIndex } = useGame();
+function ScorecardModal({ visible, onClose, leftSeatIndices }: { visible: boolean; onClose: () => void; leftSeatIndices?: Set<number> }) {
+  const { game, gameMode, humanPlayerIndex, mySeatIndex } = useGame();
   const insets = useSafeAreaInsets();
   if (!game) return null;
 
-  const activePlayers = game.players.filter(p => !p.eliminated);
-  const eliminatedPlayers = game.players.filter(p => p.eliminated);
+  const myIdx = gameMode === 'online' ? mySeatIndex : humanPlayerIndex;
+  const activePlayers = game.players.filter((p, i) => !p.eliminated && !leftSeatIndices?.has(i));
+  const leftPlayers = game.players.filter((_, i) => leftSeatIndices?.has(i));
+  const eliminatedPlayers = game.players.filter((p, i) => p.eliminated && !leftSeatIndices?.has(i));
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -100,7 +102,7 @@ function ScorecardModal({ visible, onClose }: { visible: boolean; onClose: () =>
           {activePlayers.map(player => {
             const i = game.players.indexOf(player);
             const isCurrent = i === game.currentPlayerIndex;
-            const isHuman = gameMode === 'vs_bots' && i === humanPlayerIndex;
+            const isHuman = (gameMode === 'vs_bots' || gameMode === 'online') && i === myIdx;
             return (
               <View key={player.id} style={[styles.scorecardRow, isCurrent && styles.scorecardRowActive]}>
                 <View style={styles.scorecardPlayerInfo}>
@@ -127,7 +129,7 @@ function ScorecardModal({ visible, onClose }: { visible: boolean; onClose: () =>
               <Text style={styles.scorecardSectionLabel}>Eliminated</Text>
               {eliminatedPlayers.map(player => {
                 const i = game.players.indexOf(player);
-                const isHuman = gameMode === 'vs_bots' && i === humanPlayerIndex;
+                const isHuman = (gameMode === 'vs_bots' || gameMode === 'online') && i === myIdx;
                 return (
                   <View key={player.id} style={[styles.scorecardRow, styles.scorecardRowEliminated]}>
                     <View style={styles.scorecardPlayerInfo}>
@@ -145,17 +147,35 @@ function ScorecardModal({ visible, onClose }: { visible: boolean; onClose: () =>
               })}
             </>
           )}
+          {leftPlayers.length > 0 && (
+            <>
+              <View style={styles.scorecardDivider} />
+              <Text style={styles.scorecardSectionLabel}>Left Game</Text>
+              {leftPlayers.map(player => (
+                <View key={player.id} style={[styles.scorecardRow, styles.scorecardRowEliminated]}>
+                  <View style={styles.scorecardPlayerInfo}>
+                    <Ionicons name="person-remove-outline" size={15} color={Colors.textMuted} />
+                    <Text style={[styles.scorecardName, styles.scorecardNameEliminated]} numberOfLines={1}>
+                      {player.name}
+                    </Text>
+                  </View>
+                  <Text style={[styles.scorecardScore, styles.scorecardScoreEliminated]}>LEFT</Text>
+                </View>
+              ))}
+            </>
+          )}
         </Pressable>
       </Pressable>
     </Modal>
   );
 }
 
-function PlayerInfoBar({ onPress }: { onPress: () => void }) {
+function PlayerInfoBar({ onPress, leftSeatIndices }: { onPress: () => void; leftSeatIndices?: Set<number> }) {
   const { game } = useGame();
   if (!game) return null;
 
-  const active = game.players.filter(p => !p.eliminated).length;
+  const left = leftSeatIndices?.size ?? 0;
+  const active = game.players.filter(p => !p.eliminated).length - left;
   const total = game.players.length;
 
   return (
@@ -165,7 +185,7 @@ function PlayerInfoBar({ onPress }: { onPress: () => void }) {
     >
       <View style={styles.playerInfoLeft}>
         <Ionicons name="people-outline" size={14} color={Colors.textMuted} />
-        <Text style={styles.playerInfoCount}>{active}/{total} active</Text>
+        <Text style={styles.playerInfoCount}>{Math.max(0, active)}/{total} active</Text>
         <View style={styles.playerInfoSep} />
         <View style={styles.playerInfoDotRow}>
           {game.players.map((p, i) => (
@@ -173,7 +193,7 @@ function PlayerInfoBar({ onPress }: { onPress: () => void }) {
               key={p.id}
               style={[
                 styles.playerStatusDot,
-                p.eliminated
+                p.eliminated || leftSeatIndices?.has(i)
                   ? styles.playerStatusDotEliminated
                   : i === game.currentPlayerIndex
                   ? styles.playerStatusDotActive
@@ -206,7 +226,7 @@ function TableArea({ disabled }: { disabled?: boolean }) {
           <Pressable
             onPress={() => {
               if (canPick) {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); } catch { /* noop */ }
                 doPickFromDeck();
               }
             }}
@@ -233,7 +253,12 @@ function TableArea({ disabled }: { disabled?: boolean }) {
         </View>
 
         <View style={styles.availableSection}>
-          <Text style={styles.deckLabel}>AVAILABLE</Text>
+          <View style={styles.availableLabelRow}>
+            <Text style={styles.deckLabel}>LAST THROWN</Text>
+            {canPick && game.currentAvailable.length > 0 && (
+              <Text style={styles.availableSubLabel}>pick 1</Text>
+            )}
+          </View>
           {game.currentAvailable.length === 0 ? (
             <View style={styles.emptyAvailable}>
               <Text style={styles.emptyAvailableText}>—</Text>
@@ -249,7 +274,7 @@ function TableArea({ disabled }: { disabled?: boolean }) {
                   key={card.id}
                   onPress={() => {
                     if (canPick) {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch { /* noop */ }
                       doPickFromAvailable(card.id);
                     }
                   }}
@@ -267,7 +292,7 @@ function TableArea({ disabled }: { disabled?: boolean }) {
             </ScrollView>
           )}
           {canPick && game.currentAvailable.length > 0 && (
-            <Text style={styles.pickHint}>tap a card to pick</Text>
+            <Text style={styles.pickHint}>tap any card to pick it</Text>
           )}
         </View>
       </View>
@@ -277,7 +302,7 @@ function TableArea({ disabled }: { disabled?: boolean }) {
 
 function HumanHandArea() {
   const {
-    game, gameMode, humanPlayerIndex, isHumanTurn,
+    game, gameMode, humanPlayerIndex, isHumanTurn, mySeatIndex,
     selectedCardIds, selectCard,
     doThrowCards, doShow,
     throwSelectionValid, showAllowed,
@@ -286,9 +311,13 @@ function HumanHandArea() {
 
   if (!game) return null;
 
-  const player = gameMode === 'vs_bots'
-    ? game.players[humanPlayerIndex]
-    : game.players[game.currentPlayerIndex];
+  // For online mode always show our own seat; for vs_bots show humanPlayerIndex; for pvp show current player
+  const myIndex = gameMode === 'online'
+    ? mySeatIndex
+    : gameMode === 'vs_bots'
+      ? humanPlayerIndex
+      : game.currentPlayerIndex;
+  const player = game.players[myIndex];
 
   if (!player) return null;
 
@@ -297,13 +326,14 @@ function HumanHandArea() {
 
   const handleCardPress = (cardId: string) => {
     if (!canThrow) return;
-    Haptics.selectionAsync();
+    try { Haptics.selectionAsync(); } catch { /* haptics not available */ }
     selectCard(cardId);
   };
 
   const handleThrow = () => {
     if (selectedCardIds.length === 0) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); } catch { /* haptics not available */ }
+    console.log('[UI THROW] selectedCardIds:', selectedCardIds, 'throwSelectionValid:', throwSelectionValid);
     doThrowCards(selectedCardIds);
   };
 
@@ -313,12 +343,12 @@ function HumanHandArea() {
 
   const confirmShow = () => {
     setShowConfirm(false);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); } catch { /* haptics not available */ }
     doShow();
   };
 
   const score = getHandScore(player.hand);
-  const isHumanLabel = gameMode === 'vs_bots';
+  const isHumanLabel = gameMode === 'vs_bots' || gameMode === 'online';
 
   const sortedHand = [...player.hand].sort((a, b) => b.value - a.value);
 
@@ -347,44 +377,69 @@ function HumanHandArea() {
                 selected={selected}
                 onPress={canThrow ? () => handleCardPress(card.id) : undefined}
                 disabled={!canThrow}
-                dimmed={!isHumanTurn && gameMode === 'vs_bots'}
+                dimmed={!isHumanTurn && (gameMode === 'vs_bots' || gameMode === 'online')}
               />
             </View>
           );
         })}
       </View>
 
+      {/* ── Throw-phase actions ── */}
       {canThrow && (
         <View style={styles.actionButtons}>
-          {selectedCardIds.length > 0 ? (
-            <Pressable
-              onPress={handleThrow}
-              style={({ pressed }) => [
-                styles.actionBtn,
-                throwSelectionValid ? styles.actionBtnThrow : styles.actionBtnInvalid,
-                pressed && { opacity: 0.8 },
-              ]}
-            >
-              <Ionicons
-                name={throwSelectionValid ? 'arrow-up-circle' : 'close-circle'}
-                size={18}
-                color={throwSelectionValid ? Colors.gold : Colors.red}
-              />
-              <Text style={[styles.actionBtnText, { color: throwSelectionValid ? Colors.gold : Colors.red }]}>
-                {throwSelectionValid
-                  ? (selectedCardIds.length === 1
-                    ? 'Throw Card'
-                    : `Throw ${selectedCardIds.length} Cards`)
-                  : 'Invalid — select 1, pair of 2+, or sequence of 3+'}
-              </Text>
-            </Pressable>
-          ) : (
-            <Text style={styles.actionHint}>
-              {showAllowed
-                ? 'Select cards to throw, or call Show below'
-                : `Select 1 card, a pair, or a sequence of 3+`}
+          {/* Throw button — always visible when it's the player's throw turn */}
+          <Pressable
+            onPress={throwSelectionValid ? handleThrow : undefined}
+            style={({ pressed }) => [
+              styles.actionBtn,
+              selectedCardIds.length === 0
+                ? styles.actionBtnDisabled
+                : throwSelectionValid ? styles.actionBtnThrow : styles.actionBtnInvalid,
+              pressed && throwSelectionValid && { opacity: 0.8 },
+            ]}
+          >
+            <Ionicons
+              name={selectedCardIds.length === 0 ? 'arrow-up-circle-outline' : throwSelectionValid ? 'arrow-up-circle' : 'close-circle'}
+              size={18}
+              color={selectedCardIds.length === 0 ? Colors.textMuted : throwSelectionValid ? Colors.gold : Colors.red}
+            />
+            <Text style={[styles.actionBtnText, {
+              color: selectedCardIds.length === 0 ? Colors.textMuted : throwSelectionValid ? Colors.gold : Colors.red
+            }]}>
+              {selectedCardIds.length === 0
+                ? 'Tap a card to select'
+                : throwSelectionValid
+                  ? (selectedCardIds.length === 1 ? 'Throw Card' : `Throw ${selectedCardIds.length} Cards`)
+                  : 'Invalid selection'}
             </Text>
-          )}
+          </Pressable>
+
+          {/* Rules hint always shown so player knows what's valid */}
+          <View style={styles.throwHintBox}>
+            <Text style={styles.throwHintTitle}>Your turn — select cards, then throw:</Text>
+            <View style={styles.throwHintRules}>
+              <Text style={styles.throwHintRule}>• Single card (any card)</Text>
+              <Text style={styles.throwHintRule}>• 2+ same rank  (e.g. K K  or  7 7 7)</Text>
+              <Text style={styles.throwHintRule}>• 3+ consecutive  (e.g. 7 8 9  or  J Q K)</Text>
+            </View>
+            {!throwSelectionValid && selectedCardIds.length > 0 && (
+              <View style={styles.invalidHintBox}>
+                <Ionicons name="information-circle-outline" size={14} color={Colors.textMuted} />
+                <Text style={styles.invalidHintText}>
+                  Valid throws: 1 card alone · 2+ same rank · 3+ consecutive
+                </Text>
+              </View>
+            )}
+            {showAllowed && selectedCardIds.length === 0 && (
+              <Text style={styles.showHintText}>— or call Show below if you're confident —</Text>
+            )}
+            {!showAllowed && selectedCardIds.length === 0 && (
+              <View style={styles.showLockedRow}>
+                <Ionicons name="lock-closed-outline" size={11} color={Colors.textMuted} />
+                <Text style={styles.showLockedText}>Show unlocks after each player completes 1 turn</Text>
+              </View>
+            )}
+          </View>
         </View>
       )}
 
@@ -404,7 +459,9 @@ function HumanHandArea() {
         <View style={styles.showConfirmContainer}>
           <Text style={styles.showConfirmTitle}>Call Show?</Text>
           <Text style={styles.showConfirmBody}>
-            Your hand score is {score}. If any player has a lower score, you get +15 penalty.
+            Your hand score is <Text style={{ color: Colors.gold, fontWeight: 'bold' }}>{score}</Text>.{'\n'}
+            If any player has a lower score you get a <Text style={{ color: Colors.red }}>+15 penalty</Text>.{'\n'}
+            Otherwise others pay the difference to your score.
           </Text>
           <View style={styles.showConfirmButtons}>
             <Pressable
@@ -425,18 +482,69 @@ function HumanHandArea() {
         </View>
       )}
 
-      {isPick && isHumanTurn && (
+      {/* ── Pick-phase hint ── */}
+      {isPick && (
         <View style={styles.pickPhaseHint}>
           <Ionicons name="hand-left-outline" size={16} color={Colors.gold} />
-          <Text style={styles.pickPhaseHintText}>Pick a card above — from Available or Deck</Text>
+          <Text style={styles.pickPhaseHintText}>
+            Pick 1 card — tap from <Text style={{ fontWeight: 'bold' }}>Last Thrown</Text> above, or draw from the <Text style={{ fontWeight: 'bold' }}>Deck</Text>
+          </Text>
         </View>
       )}
 
+      {/* ── Waiting messages ── */}
       {!isHumanTurn && gameMode === 'vs_bots' && game.phase !== 'show_reveal' && game.phase !== 'game_over' && (
         <View style={styles.waitingOverlay}>
           <Text style={styles.waitingText}>Waiting for bots...</Text>
         </View>
       )}
+      {!isHumanTurn && gameMode === 'online' && game.phase !== 'show_reveal' && game.phase !== 'game_over' && (
+        <View style={styles.onlineWaitBanner}>
+          <Ionicons name="time-outline" size={15} color={Colors.gold} />
+          <Text style={styles.onlineWaitText}>
+            Waiting for <Text style={styles.onlineWaitName}>{game.players[game.currentPlayerIndex]?.name ?? 'player'}</Text> to play…
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function OnlineOpponentsViewer() {
+  const { game, mySeatIndex } = useGame();
+  if (!game) return null;
+
+  const opponents = game.players.filter((p, i) => i !== mySeatIndex && !p.eliminated);
+  if (opponents.length === 0) return null;
+
+  return (
+    <View style={styles.botHandsSection}>
+      <Text style={styles.botHandsTitle}>Opponents</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.botHandsScroll}>
+        {opponents.map(opp => {
+          const isActive = game.players.indexOf(opp) === game.currentPlayerIndex;
+          return (
+            <View key={opp.id} style={[styles.botHandCard, isActive && styles.botHandCardActive]}>
+              <View style={styles.botHandHeader}>
+                <Ionicons name="person-outline" size={12} color={isActive ? Colors.gold : Colors.textMuted} />
+                <Text style={[styles.botHandName, isActive && styles.botHandNameActive]} numberOfLines={1}>
+                  {opp.name}
+                </Text>
+                {isActive && <View style={styles.activeDot} />}
+              </View>
+              <View style={styles.botHandCards}>
+                {opp.hand.slice(0, 5).map((_, ci) => (
+                  <CardBack key={ci} size="tiny" />
+                ))}
+                {opp.hand.length > 5 && (
+                  <Text style={styles.botMoreCards}>+{opp.hand.length - 5}</Text>
+                )}
+              </View>
+              <Text style={styles.botHandCount}>{opp.hand.length} cards</Text>
+            </View>
+          );
+        })}
+      </ScrollView>
     </View>
   );
 }
@@ -481,14 +589,21 @@ function BotHandsViewer() {
 }
 
 function ShowRevealModal() {
-  const { game, gameMode, humanPlayerIndex, doNextRound } = useGame();
+  const { game, gameMode, humanPlayerIndex, mySeatIndex, doNextRound } = useGame();
   if (!game || (game.phase !== 'show_reveal' && game.phase !== 'game_over')) return null;
 
+  const myIdx = gameMode === 'online' ? mySeatIndex : humanPlayerIndex;
   const isGameOver = game.phase === 'game_over';
   const showingPlayer = game.showCalledByIndex !== null ? game.players[game.showCalledByIndex] : null;
+  const showingScore = showingPlayer ? getHandScore(showingPlayer.hand) : 0;
+
+  // Determine if the shower got penalised (someone had a lower score)
+  const showerPenalised = game.players.some(
+    (p) => p.id !== showingPlayer?.id && getHandScore(p.hand) < showingScore
+  );
 
   const handleContinue = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); } catch { /* noop */ }
     if (isGameOver) {
       router.replace('/results');
     } else {
@@ -507,25 +622,60 @@ function ShowRevealModal() {
 
             {showingPlayer && (
               <Text style={styles.revealSubtitle}>
-                {gameMode === 'vs_bots' && showingPlayer.id === game.players[humanPlayerIndex]?.id
+                {(gameMode === 'vs_bots' || gameMode === 'online') && showingPlayer.id === game.players[myIdx]?.id
                   ? 'You called Show'
                   : `${showingPlayer.name} called Show`}
               </Text>
             )}
 
+            {/* Scoring rule reminder */}
+            <View style={styles.revealScoringRule}>
+              {showerPenalised ? (
+                <View style={styles.revealScoringRuleRow}>
+                  <Ionicons name="alert-circle-outline" size={12} color={Colors.red} />
+                  <Text style={styles.revealScoringRuleText}>
+                    Shower penalty: someone had lower score → shower gets{' '}
+                    <Text style={{ color: Colors.red }}>+15 pts</Text>, all others get{' '}
+                    <Text style={{ color: Colors.green }}>0 pts</Text>
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.revealScoringRuleRow}>
+                  <Ionicons name="checkmark-circle-outline" size={12} color={Colors.green} />
+                  <Text style={styles.revealScoringRuleText}>
+                    Shower wins! Others pay the difference — each player's score − {showingScore} added to their total
+                  </Text>
+                </View>
+              )}
+            </View>
+
             <View style={styles.revealScores}>
-              {game.players.filter(p => !p.eliminated || game.phase === 'show_reveal').map((player, _) => {
+              {game.players.filter(p => !p.eliminated || game.phase === 'show_reveal').map((player) => {
                 const roundScore = game.roundScores.find(rs => rs.playerId === player.id);
                 const handScore = getHandScore(player.hand);
                 const isShower = game.showCalledByIndex !== null && game.players[game.showCalledByIndex]?.id === player.id;
                 const i = game.players.indexOf(player);
-                const isHumanPlayer = gameMode === 'vs_bots' && i === humanPlayerIndex;
+                const isHumanPlayer = (gameMode === 'vs_bots' || gameMode === 'online') && i === myIdx;
+                const added = roundScore?.added ?? 0;
+
+                // Build the score formula string
+                let formula = '';
+                if (isShower && showerPenalised) {
+                  formula = '+15 penalty';
+                } else if (isShower) {
+                  formula = '0 pts (wins)';
+                } else if (!showerPenalised && added > 0) {
+                  formula = `${handScore} − ${showingScore} = +${added}`;
+                } else {
+                  formula = '0 pts';
+                }
 
                 return (
                   <View key={player.id} style={[styles.revealRow, isShower && styles.revealRowShower]}>
                     <View style={styles.revealPlayerInfo}>
                       {isShower && <Ionicons name="hand-left" size={13} color={Colors.gold} />}
                       {player.isBot && !isShower && <Ionicons name="hardware-chip-outline" size={13} color={Colors.textMuted} />}
+                      {!player.isBot && !isShower && <Ionicons name="person-outline" size={13} color={Colors.textMuted} />}
                       <Text style={styles.revealPlayerName} numberOfLines={1}>
                         {isHumanPlayer ? 'You' : player.name}
                       </Text>
@@ -539,10 +689,10 @@ function ShowRevealModal() {
                       )}
                     </View>
                     <View style={styles.revealScoreCol}>
-                      <Text style={styles.revealHandScore}>{handScore}</Text>
-                      {roundScore && roundScore.added > 0 && (
-                        <Text style={styles.revealPenalty}>+{roundScore.added}</Text>
-                      )}
+                      <Text style={styles.revealHandScore}>{handScore} pts</Text>
+                      <Text style={[styles.revealFormula, added > 0 && { color: Colors.red }]}>
+                        {formula}
+                      </Text>
                       <Text style={styles.revealTotalScore}>{player.score} total</Text>
                     </View>
                   </View>
@@ -554,7 +704,10 @@ function ShowRevealModal() {
               <Animated.View entering={FadeInDown.delay(400)} style={styles.winnerBanner}>
                 <Text style={styles.winnerLabel}>Winner</Text>
                 <Text style={styles.winnerName}>
-                  {gameMode === 'vs_bots' && !game.winner.isBot ? 'You Win!' : game.winner.name}
+                  {(gameMode === 'vs_bots' && !game.winner.isBot) ||
+                   (gameMode === 'online' && game.players.indexOf(game.winner) === myIdx)
+                    ? 'You Win!'
+                    : game.winner.name}
                 </Text>
               </Animated.View>
             )}
@@ -608,12 +761,49 @@ export default function GameScreen() {
   const insets = useSafeAreaInsets();
   const {
     game, gameMode, resetGame,
-    botThinking, botLastAction, isHumanTurn, humanPlayerIndex,
+    botThinking, botLastAction, isHumanTurn, humanPlayerIndex, mySeatIndex,
+    playerLeftNotif, leftSeatIndices, sendPlayerLeft, clearPlayerLeftNotif,
   } = useGame();
   const [showPassOverlay, setShowPassOverlay] = useState(false);
   const [showScorecard, setShowScorecard] = useState(false);
+  const [playerLeftBanner, setPlayerLeftBanner] = useState<string | null>(null);
+  const playerLeftTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Show auto-dismissing banner when a player leaves.
+  // If this player is now the only one left, redirect home after a short delay.
+  useEffect(() => {
+    if (!playerLeftNotif || !game) return;
+
+    const humanCount = game.players.filter(p => !p.isBot).length;
+    const remaining = humanCount - leftSeatIndices.size;
+    const isLastPlayer = gameMode === 'online' && remaining <= 1;
+
+    if (isLastPlayer) {
+      // Show a message then go home — can't play alone
+      setPlayerLeftBanner('All other players left. Returning to home…');
+      clearPlayerLeftNotif();
+      const t = setTimeout(() => {
+        resetGame();
+        router.replace('/');
+      }, 3000);
+      return () => clearTimeout(t);
+    }
+
+    setPlayerLeftBanner(playerLeftNotif);
+    clearPlayerLeftNotif();
+    if (playerLeftTimerRef.current) clearTimeout(playerLeftTimerRef.current);
+    playerLeftTimerRef.current = setTimeout(() => setPlayerLeftBanner(null), 4000);
+    return () => {
+      if (playerLeftTimerRef.current) clearTimeout(playerLeftTimerRef.current);
+    };
+  }, [playerLeftNotif]);
 
   const webTop = Platform.OS === 'web' ? Math.max(insets.top, 67) : insets.top;
+
+  // Log whenever game/gameMode/mySeatIndex changes, so we can diagnose state in browser console
+  useEffect(() => {
+    console.log('[GameScreen] render: gameMode=', gameMode, 'game=', game ? `phase=${game.phase} currentIdx=${game.currentPlayerIndex}` : 'null', 'mySeatIndex=', mySeatIndex, 'isHumanTurn=', isHumanTurn);
+  }, [game, gameMode, mySeatIndex, isHumanTurn]);
 
   useEffect(() => {
     if (!game || gameMode !== 'pvp') return;
@@ -626,31 +816,55 @@ export default function GameScreen() {
     }
   }, [game?.phase, game?.currentPlayerIndex, gameMode]);
 
+  // Only redirect if game is still null after a short grace period.
+  // This prevents bouncing users away when the context state hasn't
+  // hydrated yet (e.g., right after startRoomGame/router.replace).
+  const latestGameRef = React.useRef(game);
+  latestGameRef.current = game;
+  const gameNullTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    if (!game) {
-      router.replace('/');
+    if (game) {
+      if (gameNullTimerRef.current) {
+        clearTimeout(gameNullTimerRef.current);
+        gameNullTimerRef.current = null;
+      }
+      return;
     }
+    gameNullTimerRef.current = setTimeout(() => {
+      if (!latestGameRef.current) {
+        router.replace('/');
+      }
+    }, 800);
+    return () => {
+      if (gameNullTimerRef.current) clearTimeout(gameNullTimerRef.current);
+    };
   }, [game]);
 
   if (!game) return null;
 
   const currentPlayer = game.players[game.currentPlayerIndex];
-  const displayCurrentName = gameMode === 'vs_bots' && game.currentPlayerIndex === humanPlayerIndex
-    ? 'You'
-    : currentPlayer.name;
+  const myIndex = gameMode === 'online' ? mySeatIndex : humanPlayerIndex;
+  const displayCurrentName =
+    (gameMode === 'vs_bots' || gameMode === 'online') && game.currentPlayerIndex === myIndex
+      ? 'You'
+      : currentPlayer.name;
 
   const handleQuit = () => {
-    Alert.alert('Quit Game', 'Are you sure you want to quit?', [
-      { text: 'Keep Playing', style: 'cancel' },
-      {
-        text: 'Quit',
-        style: 'destructive',
-        onPress: () => {
-          resetGame();
-          router.replace('/');
-        },
-      },
-    ]);
+    const doQuit = () => {
+      if (gameMode === 'online') sendPlayerLeft();
+      resetGame();
+      router.replace('/');
+    };
+    if (Platform.OS === 'web') {
+      if (window.confirm('Quit Game — Are you sure you want to quit?')) {
+        doQuit();
+      }
+    } else {
+      Alert.alert('Quit Game', 'Are you sure you want to quit?', [
+        { text: 'Keep Playing', style: 'cancel' },
+        { text: 'Quit', style: 'destructive', onPress: doQuit },
+      ]);
+    }
   };
 
   const isBotTurn = gameMode === 'vs_bots' && currentPlayer.isBot;
@@ -678,7 +892,7 @@ export default function GameScreen() {
         </View>
       </View>
 
-      {gameMode === 'vs_bots' && isHumanTurn && (
+      {(gameMode === 'vs_bots' || gameMode === 'online') && isHumanTurn && (
         <Animated.View
           entering={FadeInDown.duration(250)}
           exiting={FadeOut.duration(200)}
@@ -689,7 +903,15 @@ export default function GameScreen() {
         </Animated.View>
       )}
 
-      <PlayerInfoBar onPress={() => setShowScorecard(true)} />
+      <PlayerInfoBar onPress={() => setShowScorecard(true)} leftSeatIndices={leftSeatIndices} />
+
+      {/* Player-left notification banner */}
+      {playerLeftBanner && (
+        <Animated.View entering={FadeInDown.duration(300)} exiting={FadeOut.duration(300)} style={styles.playerLeftBanner}>
+          <Ionicons name="person-remove-outline" size={16} color={Colors.red} />
+          <Text style={styles.playerLeftBannerText}>{playerLeftBanner}</Text>
+        </Animated.View>
+      )}
 
       {botThinking && currentPlayer.isBot && (
         <BotThinkingBanner botName={currentPlayer.name} />
@@ -704,12 +926,15 @@ export default function GameScreen() {
       {gameMode === 'vs_bots' && (
         <BotHandsViewer />
       )}
+      {gameMode === 'online' && (
+        <OnlineOpponentsViewer />
+      )}
 
       <HumanHandArea />
 
       <ShowRevealModal />
 
-      <ScorecardModal visible={showScorecard} onClose={() => setShowScorecard(false)} />
+      <ScorecardModal visible={showScorecard} onClose={() => setShowScorecard(false)} leftSeatIndices={leftSeatIndices} />
 
       {showPassOverlay && gameMode === 'pvp' && (
         <PassDeviceOverlay onReady={() => setShowPassOverlay(false)} />
@@ -945,6 +1170,25 @@ const styles = StyleSheet.create({
   },
   scorecardScoreActive: { color: Colors.gold },
   scorecardScoreEliminated: { color: Colors.red, fontSize: 13, fontFamily: 'Inter_600SemiBold' },
+  playerLeftBanner: {
+    marginHorizontal: 16,
+    marginBottom: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: 'rgba(231,76,60,0.12)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(231,76,60,0.35)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  playerLeftBannerText: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 13,
+    color: Colors.red,
+    flex: 1,
+  },
   thinkingBanner: {
     marginHorizontal: 16,
     marginBottom: 4,
@@ -1037,6 +1281,21 @@ const styles = StyleSheet.create({
   availableSection: {
     flex: 1,
     gap: 6,
+  },
+  availableLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  availableSubLabel: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 9,
+    color: Colors.gold,
+    backgroundColor: 'rgba(212,175,55,0.15)',
+    borderRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    overflow: 'hidden',
   },
   availableScroll: {
     gap: 6,
@@ -1192,12 +1451,71 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(231,76,60,0.3)',
     backgroundColor: 'rgba(231,76,60,0.06)',
   },
+  actionBtnDisabled: {
+    borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.03)',
+  },
   actionBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, flexShrink: 1 },
   actionHint: {
     fontFamily: 'Inter_400Regular',
     fontSize: 13,
     color: Colors.textMuted,
     textAlign: 'center',
+  },
+  throwHintBox: {
+    backgroundColor: 'rgba(212,175,55,0.06)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.18)',
+    padding: 12,
+    gap: 6,
+  },
+  throwHintTitle: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 12,
+    color: Colors.gold,
+    textAlign: 'center',
+  },
+  throwHintRules: { gap: 2 },
+  throwHintRule: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+  },
+  showHintText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    fontStyle: 'italic',
+    marginTop: 4,
+  },
+  showLockedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  showLockedText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+    color: Colors.textMuted,
+  },
+  invalidHintBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    paddingHorizontal: 4,
+    marginTop: 4,
+  },
+  invalidHintText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+    color: Colors.textMuted,
+    flex: 1,
+    lineHeight: 16,
   },
   showButtonContainer: { paddingHorizontal: 16 },
   showButton: {
@@ -1288,6 +1606,29 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     fontStyle: 'italic',
   },
+  onlineWaitBanner: {
+    marginHorizontal: 16,
+    marginBottom: 4,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: 'rgba(212,175,55,0.08)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.25)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  onlineWaitText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    color: Colors.textSecondary,
+    flex: 1,
+  },
+  onlineWaitName: {
+    fontFamily: 'Inter_600SemiBold',
+    color: Colors.gold,
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: Colors.overlay,
@@ -1351,10 +1692,30 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     alignSelf: 'center',
   },
-  revealScoreCol: { alignItems: 'flex-end', minWidth: 55 },
-  revealHandScore: { fontFamily: 'Inter_700Bold', fontSize: 18, color: Colors.gold },
+  revealScoreCol: { alignItems: 'flex-end', minWidth: 80 },
+  revealHandScore: { fontFamily: 'Inter_700Bold', fontSize: 16, color: Colors.gold },
   revealPenalty: { fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.red },
+  revealFormula: { fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.textSecondary },
   revealTotalScore: { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textMuted },
+  revealScoringRule: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 8,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  revealScoringRuleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+  },
+  revealScoringRuleText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+    color: Colors.textSecondary,
+    lineHeight: 16,
+    flex: 1,
+  },
   winnerBanner: {
     alignItems: 'center',
     padding: 14,

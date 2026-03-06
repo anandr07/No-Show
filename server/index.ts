@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
@@ -29,12 +30,8 @@ function setupCors(app: express.Application) {
 
     const origin = req.header("origin");
 
-    // Allow localhost origins for Expo web development (any port)
-    const isLocalhost =
-      origin?.startsWith("http://localhost:") ||
-      origin?.startsWith("http://127.0.0.1:");
-
-    if (origin && (origins.has(origin) || isLocalhost)) {
+    // In development, allow any origin so Expo web / tunnel and devices can hit the API.
+    if (process.env.NODE_ENV !== "production" && origin) {
       res.header("Access-Control-Allow-Origin", origin);
       res.header(
         "Access-Control-Allow-Methods",
@@ -42,6 +39,22 @@ function setupCors(app: express.Application) {
       );
       res.header("Access-Control-Allow-Headers", "Content-Type");
       res.header("Access-Control-Allow-Credentials", "true");
+    } else {
+      // Production: strict allowlist (can be extended as needed)
+      // Allow localhost origins for Expo web development (any port)
+      const isLocalhost =
+        origin?.startsWith("http://localhost:") ||
+        origin?.startsWith("http://127.0.0.1:");
+
+      if (origin && (origins.has(origin) || isLocalhost)) {
+        res.header("Access-Control-Allow-Origin", origin);
+        res.header(
+          "Access-Control-Allow-Methods",
+          "GET, POST, PUT, DELETE, OPTIONS",
+        );
+        res.header("Access-Control-Allow-Headers", "Content-Type");
+        res.header("Access-Control-Allow-Credentials", "true");
+      }
     }
 
     if (req.method === "OPTIONS") {
@@ -230,21 +243,15 @@ function setupErrorHandler(app: express.Application) {
   setupBodyParsing(app);
   setupRequestLogging(app);
 
-  configureExpoAndLanding(app);
-
+  // Register API routes first so /api/* is never handled by static or Expo middleware
   const server = await registerRoutes(app);
+
+  configureExpoAndLanding(app);
 
   setupErrorHandler(app);
 
   const port = parseInt(process.env.PORT || "5000", 10);
-  server.listen(
-    {
-      port,
-      host: "0.0.0.0",
-      reusePort: true,
-    },
-    () => {
-      log(`express server serving on port ${port}`);
-    },
-  );
+  server.listen(port, "0.0.0.0", () => {
+    log(`express server serving on port ${port}`);
+  });
 })();

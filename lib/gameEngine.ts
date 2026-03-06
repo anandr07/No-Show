@@ -62,7 +62,7 @@ export function shuffleDeck(deck: Card[]): Card[] {
   return shuffled;
 }
 
-export function initGame(playerNames: string[], botIndices: number[] = []): GameState {
+export function initGame(playerNames: string[], botIndices: number[] = [], forcedStarterIndex?: number): GameState {
   const deck = shuffleDeck(createDeck());
   const players: Player[] = playerNames.map((name, idx) => ({
     id: `player-${idx}`,
@@ -74,7 +74,10 @@ export function initGame(playerNames: string[], botIndices: number[] = []): Game
   }));
 
   let deckIndex = 0;
-  const starterIndex = Math.floor(Math.random() * players.length);
+  const starterIndex =
+    forcedStarterIndex !== undefined && forcedStarterIndex >= 0 && forcedStarterIndex < players.length
+      ? forcedStarterIndex
+      : Math.floor(Math.random() * players.length);
 
   for (let i = 0; i < players.length; i++) {
     const handSize = i === starterIndex ? 8 : 7;

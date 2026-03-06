@@ -19,6 +19,8 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { queryClient } from '@/lib/query-client';
 import { GameProvider } from '@/context/GameContext';
+import { AuthProvider } from '@/context/AuthContext';
+import { RoomProvider } from '@/context/RoomContext';
 import Colors from '@/constants/colors';
 
 SplashScreen.preventAutoHideAsync();
@@ -37,6 +39,10 @@ function RootLayoutNav() {
       <Stack.Screen name="game" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
       <Stack.Screen name="results" options={{ animation: 'slide_from_bottom' }} />
       <Stack.Screen name="howtoplay" options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="login" options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="online-setup" options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="room-entry" options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="room-lobby" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
     </Stack>
   );
 }
@@ -69,9 +75,13 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <GestureHandlerRootView style={{ flex: 1 }}>
           <KeyboardProvider>
-            <GameProvider>
-              <RootLayoutNav />
-            </GameProvider>
+            <AuthProvider>
+              <GameProvider>
+                <RoomProvider>
+                  <RootLayoutNav />
+                </RoomProvider>
+              </GameProvider>
+            </AuthProvider>
           </KeyboardProvider>
         </GestureHandlerRootView>
       </QueryClientProvider>
